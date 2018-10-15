@@ -1,9 +1,5 @@
 # Mycelium Street Networks
 
-First use Mapbox Directions to compute routes from each location in [`locations.geojson`](geojson/locations.geojson):
+Compute routes from each point in a GeoJSON FeatureCollection:
 
-    node mycelium.js geojson/locations.geojson > geojson/mycelium.geojson
-
-Then, segmentize and calculate disctance between each segment and its route origin:    
-
-    node segmentize-with-distances.js geojson/mycelium.geojson > geojson/mycelium-segmentized.geojson
+    node mycelium.js locations.geojson > mycelium.geojson

@@ -9,11 +9,15 @@ const argv = require('minimist')(process.argv.slice(2), {
   }
 })
 
-const bufferSize = 1000 // meters
-const numRandomPoints = 10
-const numRandomLines = 5
+const bufferSize = 1200 // meters
+const numRandomPoints = 8
+const numRandomLines = 10
 const bufferSteps = 10 // see http://turfjs.org/docs#buffer
 const sleepMs = 700 // sleep between Mapbox requests, in ms
+const simplificationOptions = {
+  tolerance: 0.0001,
+  highQuality: true
+}
 
 const name = path.basename(__filename)
 
@@ -58,7 +62,7 @@ function routesToPointOnBuffer (feature, buffered) {
 }
 
 function routesBetweenRandomPointsInBuffer (buffered) {
-  return turf.randomPoint(numRandomPoints, {
+  return turf.randomPoint(numRandomLines * 2, {
     bbox: turf.bbox(buffered)
   }).features
     .reduce((result, value, index, array) => {
@@ -74,7 +78,7 @@ function routesBetweenRandomPointsInBuffer (buffered) {
 }
 
 function routesToRandomPointsInBuffer (feature, buffered) {
-  return turf.randomPoint(numRandomLines * 2, {
+  return turf.randomPoint(numRandomPoints, {
     bbox: turf.bbox(buffered)
   }).features
     .map((randomPoint) => {
@@ -105,10 +109,25 @@ function lineStringFeatureWithProperties (feature, points) {
 }
 
 const lines = R.flatten(geojson.features.map((feature) => {
-  const buffered = turf.buffer(feature, bufferSize / 1000, {
+  const bufferedAll = turf.buffer(feature, bufferSize / 1000, {
     units: 'kilometers',
     steps: bufferSteps
   })
+
+  const ratio = Math.floor(bufferedAll.geometry.coordinates[0].length / bufferSteps)
+
+  const buffered = {
+    ...bufferedAll,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        bufferedAll.geometry.coordinates[0]
+          .filter((_, index, ar) => {
+            return (index % ratio === 0);
+          })
+      ]
+    }
+  }
 
   return [
     ...routesToPointOnBuffer(feature, buffered),
@@ -140,7 +159,8 @@ function computeAllRoutes(lines, sleep) {
             routes.push({
               type: 'Feature',
               properties: line.properties,
-              geometry: getRoutesFromResponse(response)
+              geometry: turf.simplify(getRoutesFromResponse(response),
+                simplificationOptions)
             })
           })
       })
